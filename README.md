@@ -5,8 +5,7 @@ Test comment from Ulli
 
 Test comment with request
 
-<<<<<<< HEAD
-Test from local readme file (Ulli)
+ZWEITER LOKALER TEST
 =======
 
 Test GitHub Desktop
