@@ -1,2 +1,1 @@
-# MaskFit - D2 Tech Demo
-
+# MaskFit - SCED Project
