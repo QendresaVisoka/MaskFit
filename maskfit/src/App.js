@@ -44,7 +44,7 @@ function App() {
 
   return (
     <div className="App">
-      <h1 className="title">MaskFit - Real-Time Pressure Monitoring</h1>
+      <h1 className="title">MaskFit - Real-Time Mask Fit Monitoring</h1>
 
       <div className="form">
         <label>Enter Ideal Pressure for Patient:</label>
