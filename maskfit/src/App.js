@@ -1,46 +1,52 @@
 import React, { useState, useEffect } from 'react';
+import './App.css'; // Make sure CSS is imported
 
 function App() {
-  const [idealPressure, setIdealPressure] = useState(50);  // State for user input
-  const [sensorValue, setSensorValue] = useState(50);  // Simulated sensor value
-  const [color, setColor] = useState('grey');  // Initial color is grey
+  const [idealPressure, setIdealPressure] = useState(50);
+  const [sensors, setSensors] = useState([
+    { id: 1, value: 50, color: 'grey', className: 'dot-1' },
+    { id: 2, value: 50, color: 'grey', className: 'dot-2' },
+    { id: 3, value: 50, color: 'grey', className: 'dot-3' },
+    { id: 4, value: 50, color: 'grey', className: 'dot-4' },
+    { id: 5, value: 50, color: 'grey', className: 'dot-5' },
+    { id: 6, value: 50, color: 'grey', className: 'dot-6' }
+  ]);
 
-  // Function to handle input change
   const handleInputChange = (e) => {
     setIdealPressure(e.target.value);
   };
 
-  // Function to compare values and update circle color
-  const compareValues = (sensorVal) => {
-    const enteredPressure = parseFloat(idealPressure);
-    const deviation = Math.abs(sensorVal - enteredPressure);
+  const compareValues = (sensorVal, idealPressure) => {
+    const deviation = Math.abs(sensorVal - idealPressure);
 
-    // Change color based on deviation
     if (deviation > 20) {
-      setColor('red');
+      return 'red';
     } else if (deviation >= 10 && deviation <= 20) {
-      setColor('orange');
+      return 'orange';
     } else {
-      setColor('green');
+      return 'green';
     }
   };
 
-  // Simulate sensor value changing over time
   useEffect(() => {
     const interval = setInterval(() => {
-      // Generate random sensor value between 40 and 60
-      const newSensorValue = Math.floor(Math.random() * 21) + 40;
-      setSensorValue(newSensorValue);  // Update sensor value
-      compareValues(newSensorValue);  // Compare new sensor value with ideal pressure
-    }, 1000);  // Update every 1 second
+      setSensors((prevSensors) =>
+        prevSensors.map((sensor) => {
+          const newSensorValue = Math.floor(Math.random() * 21) + 40;
+          const newColor = compareValues(newSensorValue, parseFloat(idealPressure));
+          return { ...sensor, value: newSensorValue, color: newColor };
+        })
+      );
+    }, 1000);
 
-    return () => clearInterval(interval);  // Cleanup interval on component unmount
-  }, [idealPressure]);  // Rerun effect when ideal pressure changes
+    return () => clearInterval(interval);
+  }, [idealPressure]);
 
   return (
     <div className="App">
-      <h1>MaskFit - Real-Time Pressure Monitoring</h1>
-      <div>
+      <h1 className="title">MaskFit - Real-Time Pressure Monitoring</h1>
+
+      <div className="form">
         <label>Enter Ideal Pressure for Patient:</label>
         <input
           type="number"
@@ -50,19 +56,23 @@ function App() {
         />
       </div>
 
-      {/* Circle to indicate pressure status */}
-      <div
-        style={{
-          width: '200px',
-          height: '200px',
-          borderRadius: '50%',
-          backgroundColor: color,
-          margin: '20px auto',
-        }}
-      ></div>
+      <div className="sensor-dots">
+        {sensors.map((sensor) => (
+          <div
+            key={sensor.id}
+            className={`sensor-dot ${sensor.className}`}
+            style={{ backgroundColor: sensor.color }}
+          ></div>
+        ))}
+      </div>
 
-      <p>Sensor Value (Real-Time): {sensorValue}</p>
-      <p>Ideal Pressure: {idealPressure}</p>
+      <div className="status-icon">
+        <div>
+          X
+        </div>
+        <p>Too tight</p>
+        <p>Please adjust your straps for a looser fit</p>
+      </div>
     </div>
   );
 }
