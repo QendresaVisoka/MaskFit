@@ -3,20 +3,28 @@ import './App.css';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls';
-import { Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Button, useDisclosure } from "@nextui-org/react";
+import WelcomeScreen from './WelcomeScreen';
+import SetPressureScreen from './SetPressure';
+import { useDisclosure } from '@nextui-org/react';
 
 function App() {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
-
-  useEffect(() => {
-    onOpen(); // Opens the modal when the app loads
-  }, []);
-
+  const [currentStep, setCurrentStep] = useState(0); // Step controller for the onboarding flow
   const mountRef = useRef(null);
   const rendererRef = useRef(null);
-  const [enteredPressure, setEnteredPressure] = useState(75); // Default entered pressure
-  const [displayedDeviation, setDisplayedDeviation] = useState(75); // State to display deviated pressure in UI
-  const markerRef = useRef(null);
+  const [pressure, setPressure] = useState(12); // Default pressure
+  const [displayedDeviation, setDisplayedDeviation] = useState(12); // State to display deviated pressure in UI
+  const [fittingScore, setFittingScore] = useState(50); // Default fitting score
+  const markerRefs = useRef([]); // Reference to multiple markers
+
+  // Marker positions
+  const markerPositions = [
+    [0.02, 1.2, 0.75],  // Front of head marker
+    [0.74, 1.2, -0.65], // Head left back marker
+    [-0.75, 1.2, -0.65], // Head right back marker
+    [0.0, 1.35, -1.24], // Back of the head marker
+    [0.0, 0, 1.0] // Air pressure marker
+  ];
 
   // Function to create a blurred texture for the sprite
   function createBlurredTexture() {
@@ -38,8 +46,8 @@ function App() {
   }
 
   useEffect(() => {
-    if (rendererRef.current) {
-      return;
+    if (rendererRef.current || currentStep !== 2) {
+      return; // Do not load the 3D model unless we're on the correct step
     }
 
     const currentMount = mountRef.current;
@@ -78,19 +86,21 @@ function App() {
       }
     );
 
-    // Add the red/yellow/green circle marker
-    const markerMaterial = new THREE.SpriteMaterial({
-      map: createBlurredTexture(),
-      color: 'green', // Initial color
-      transparent: true,
-      opacity: 0.7,
-      blending: THREE.AdditiveBlending,
+    // Create and add markers to the scene
+    markerPositions.forEach((position, index) => {
+      const markerMaterial = new THREE.SpriteMaterial({
+        map: createBlurredTexture(),
+        color: 'green', // Initial color
+        transparent: true,
+        opacity: 0.7,
+        blending: THREE.AdditiveBlending,
+      });
+      const marker = new THREE.Sprite(markerMaterial);
+      marker.scale.set(0.5, 0.5, 1.0);
+      marker.position.set(...position);
+      scene.add(marker);
+      markerRefs.current[index] = marker;
     });
-    const marker = new THREE.Sprite(markerMaterial);
-    marker.scale.set(0.5, 0.5, 1.0);
-    marker.position.set(0.02, 1.2, 0.75);
-    scene.add(marker);
-    markerRef.current = marker;
 
     // Set up OrbitControls (rotation only, no zoom)
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -122,15 +132,31 @@ function App() {
     // Initial resize to fit the container
     onWindowResize();
 
-    // Interval to update deviated pressure and marker color
-    const updateMarker = () => {
-      const deviation = (Math.random() - 0.5) * 100; // Random deviation between -50 and 50
-      const newDeviatedPressure = Math.min(100, Math.max(50, enteredPressure + deviation));
+    // Interval to update deviated pressure, marker colors, and fitting score
+    const updateMarkers = () => {
+      let totalScore = 0;
+
+      markerRefs.current.forEach((marker, index) => {
+        const sensorValue = Math.random() * 100; // Random value for each sensor between 0 and 100
+        const deviation = Math.abs(sensorValue - 50); // Deviation from ideal value of 50
+        totalScore += deviation;
+
+        // Update marker color based on deviation
+        const color = getColorForSensorValue(sensorValue);
+        marker.material.color.set(color);
+      });
+
+      const avgScore = totalScore / markerRefs.current.length;
+      setFittingScore(100 - avgScore); // Invert to show higher score as better fit
+
+      // Update deviation for display
+      const deviation = (Math.random() - 0.5) * 6; // Random deviation between -3 and 3
+      const newDeviatedPressure = Math.min(20, Math.max(6, pressure + deviation));
       setDisplayedDeviation(newDeviatedPressure);
 
-      setTimeout(updateMarker, 1000); // Call this function again after 1 second
+      setTimeout(updateMarkers, 1000); // Call this function again after 1 second
     };
-    updateMarker(); // Start the loop
+    updateMarkers(); // Start the loop
 
     // Clean up on unmount
     return () => {
@@ -144,65 +170,41 @@ function App() {
         currentMount.removeChild(renderer.domElement);
       }
     };
-  }, [enteredPressure]);
+  }, [pressure, currentStep]);
 
-  // Effect to update the color of the marker when `displayedDeviation` changes
-  useEffect(() => {
-    if (markerRef.current) {
-      const color = getColorForDeviation(displayedDeviation, enteredPressure);
-      markerRef.current.material.color.set(color);
-    }
-  }, [displayedDeviation]);
-
-  // Function to determine color based on deviation
-  function getColorForDeviation(value, entered) {
-    const deviation = Math.abs(value - entered);
-    if (deviation < 10) return 'green'; // Low deviation
+  // Function to determine marker color based on sensor value
+  function getColorForSensorValue(value) {
+    const deviation = Math.abs(value - 50);
+    if (deviation < 10) return 'green'; // Low deviation from ideal value
     if (deviation < 20) return 'yellow'; // Moderate deviation
     return 'red'; // High deviation
   }
 
-  // Handler for modal input submission
-  const handleModalSubmit = () => {
-    setEnteredPressure(parseFloat(enteredPressure)); // Ensure entered pressure is updated
-    onOpenChange(false); // Close the modal using NextUI's disclosure state
+  // Handler to proceed to the next step
+  const handleNextStep = (pressure) => {
+    setPressure(pressure); // Ensure pressure value is updated
+    setCurrentStep(currentStep + 1); // Move to the next step
   };
 
   return (
     <div className="App">
-      <h1 className="title">MaskFit</h1>
-      <div ref={mountRef} className="canvas-container" style={{ width: '100%', height: '100vh' }}></div>
+      {currentStep === 0 && (
+        <WelcomeScreen onNext={() => setCurrentStep(1)} />
+      )}
 
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
-        <ModalContent>
-          {(onClose) => (
-            <>
-              <ModalHeader className="flex flex-col gap-1">Enter Ideal Pressure</ModalHeader>
-              <ModalBody>
-                <Input
-                  type="number"
-                  defaultValue="50"
-                  description="Ideal pressure value should be between 50 and 100 cmH2O"
-                  value={enteredPressure}
-                  onChange={(e) => setEnteredPressure(parseFloat(e.target.value))}
-                  step="1"
-                  min="50"
-                  max="100"
-                />
-              </ModalBody>
-              <ModalFooter>
-                <Button auto flat color="error" onPress={onClose}>
-                  Close
-                </Button>
-                <Button auto onPress={handleModalSubmit}>
-                  Start
-                </Button>
-              </ModalFooter>
-            </>
-          )}
-        </ModalContent>
-      </Modal>
+      {currentStep === 1 && (
+        <SetPressureScreen onNext={handleNextStep} />
+      )}
 
+      {currentStep === 2 && (
+        <>
+          <h1 className="title">MaskFit</h1>
+          <p>Ideal pressure is {pressure} cmH₂O</p>
+          <p>Current deviation pressure: {displayedDeviation.toFixed(2)} cmH₂O</p>
+          <p>Fitting Score: {fittingScore.toFixed(2)}</p>
+          <div ref={mountRef} className="canvas-container" style={{ width: '100%', height: '100vh' }}></div>
+        </>
+      )}
     </div>
   );
 }

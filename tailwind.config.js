@@ -1,5 +1,5 @@
 // tailwind.config.js
-const { nextui } = require("@nextui-org/theme");
+const {nextui} = require("@nextui-org/react");
 
 /** @type {import('tailwindcss').Config} */
 module.exports = {
@@ -8,9 +8,20 @@ module.exports = {
     "./public/index.html", // Include your HTML if you have one
     "./node_modules/@nextui-org/theme/dist/components/**/*.js" // Include all NextUI components for styling
   ],
-  theme: {
-    extend: {},
-  },
-  darkMode: "class", // You might want to switch dark mode to 'media' if you want it to work based on user preferences.
-  plugins: [nextui()],
+  plugins: [
+    nextui({
+     
+      themes: {
+        dark: {
+          colors: {
+            primary: {
+              DEFAULT: "#BEF264",
+              foreground: "#000000",
+            },
+            focus: "#BEF264",
+          },
+        },
+      },
+    }),
+  ],
 };

@@ -9,8 +9,9 @@
   align-items: center;
   min-height: 100vh;
   background-color: #030B35;
-  color: #ffffff;
+  /*color: #ffffff; */
   overflow: hidden;
+
 }
 
 /* Centered heading */
